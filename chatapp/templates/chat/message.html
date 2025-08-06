@@ -6,20 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <title>Messages</title>
-    <!-- load static -->
     {% load static %}
-    <!-- <link rel="stylesheet" href="{% static 'style.css' %}"> -->
-    <!-- link to h=css file -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 </head>
 <body>
     <div class="parent">
         <div class="child-2">
-            <center><h2>Chats</h2></center><hr>
+            <div class="room-header">
+                <center><h2>Chats - {{room_name|title}}</h2></center>
+                <div class="user-count">
+                    <span id="userCount">1</span> users online
+                </div>
+            </div>
+            <hr>
             <div class="chat-body-parent">
                 <div class="chat-body" id="tasks">
                     <div class="message" id="chatContainer">
-                      <!-- received messages and displayed here -->
+                        <!-- received messages and displayed here -->
                         {% for i in messages %}
                             {% if i.sender != user %}
                                 <div class="receive">
@@ -31,12 +34,10 @@
                                 </div>
                             {% endif %}
                         {% endfor %}
-                    <!-- end receive messages -->
                     </div>
 
                     <div class="form">
-                        <form action="" id="message-form" method="POST">
-                            {% csrf_token %}
+                        <form action="" id="message-form" method="GET">
                             <textarea id="msg" cols="30" name="message" rows="10" placeholder="Enter your message" required></textarea>
                             <button class="submit" type="submit">Send</button>
                         </form>    
@@ -48,16 +49,22 @@
 </body>
 <script>
     function scrollToBottom() {
-        var chatContainer = document.getElementById("chatContainer");
+        const chatContainer = document.getElementById("chatContainer");
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
+    // Make connection to server.
     const websocketProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const wsEndpoint = `${websocketProtocol}://${window.location.host}/ws/notification/{{room_name}}/`;
+    const wsEndpoint = `${websocketProtocol}://${window.location.host}/ws/notification/{{room_name}}/{{user}}/`;
     const socket = new WebSocket(wsEndpoint);
 
-    document.getElementById('message-form').addEventListener('submit', function(event){
-        event.preventDefault();
+    // Open connection to server.
+    socket.onopen = (event) => {
+        console.log("WebSocket connection opened!");
+    };
+
+    // Function to send message to the server.
+    function sendMessage(){
         const message = document.getElementById('msg').value;
         socket.send(
             JSON.stringify({
@@ -66,36 +73,52 @@
                 'sender': '{{user}}',
             })
         )
+        document.getElementById('msg').value = '';
+    }
+
+    document.getElementById('message-form').addEventListener('submit', function(event){
+        event.preventDefault();
+        sendMessage();
     });
 
-    // response from consumer on server
-    socket.addEventListener("message", (event) => {
-        const messageData = JSON.parse(event.data)['message'];
-        console.log(messageData);
-        
-        var sender = messageData['sender'];
-        var message = messageData['message'];
-
-        // empty message input field after message has been sent
-        if (sender == '{{user}}'){
-            document.getElementById('msg').value = '';
+    document.getElementById('msg').addEventListener('keypress', function(event){
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            sendMessage();
         }
-
-        // Here's where we append the message to the chatbox.
-        var messageDiv = document.querySelector('.message');
-        if (sender != '{{user}}') { // assuming you have a variable `currentUser` to hold the current user's name
-            messageDiv.innerHTML += '<div class="receive"><p style="color: #000;">' + message + '<strong>-' + sender + '</strong></p></div>';
-        } else {
-            messageDiv.innerHTML += '<div class="send"><p style="color: #000;">' + message + '</p></div>';
-        }
-        scrollToBottom();
-
     });
 
-    socket.onopen = (event) => {
-        console.log("WebSocket connection opened!");
-    };
+    // Receive message from server
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'user_joined' || data.type === 'user_left') {
+            // Handle user join/leave events
+            document.getElementById('userCount').textContent = data.user_count;
+            
+            // Add system message
+            var messageDiv = document.querySelector('.message');
+            messageDiv.innerHTML += '<div class="system-message"><p style="color: #666; font-style: italic;">' + data.message + '</p></div>';
+            scrollToBottom();
+        } else if (data.message) {
+            // Handle chat messages
+            const messageData = data.message;
+            console.log(messageData);
+            
+            const sender = messageData['sender'];
+            const message = messageData['message'];
 
+            // Here's where we append the message to the chatbox.
+            const messageDiv = document.querySelector('.message');
+            if (sender != '{{user}}') {
+                messageDiv.innerHTML += '<div class="receive"><p style="color: #000;">' + message + '<strong>-' + sender + '</strong></p></div>';
+            } else {
+                messageDiv.innerHTML += '<div class="send"><p style="color: #000;">' + message + '</p></div>';
+            }
+            scrollToBottom();
+        }
+    }
+
+    // Close connection to server.
     socket.onclose = (event) => {
         console.log("WebSocket connection closed!");
     };
@@ -289,5 +312,31 @@
     }
 }
 
+    .room-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+    }
+    
+    .user-count {
+        background-color: #659DBD;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 14px;
+    }
+    
+    .system-message {
+        text-align: center;
+        margin: 10px 0;
+    }
+    
+    .system-message p {
+        background-color: #f0f0f0;
+        padding: 5px 10px;
+        border-radius: 10px;
+        display: inline-block;
+    }
 </style>
 </html>
