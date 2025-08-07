@@ -14,8 +14,16 @@
         <div class="child-2">
             <div class="room-header">
                 <center><h2>Chats - {{room_name|title}}</h2></center>
-                <div class="user-count">
-                    <span id="userCount">1</span> users online
+                <div class="user-info">
+                    <div class="user-count">
+                        <span id="userCount">1</span> users online
+                    </div>
+                    <div class="active-users">
+                        <h4>Active Users:</h4>
+                        <div id="activeUsersList" class="users-list">
+                            <span class="user-item">{{user}}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <hr>
@@ -51,6 +59,28 @@
     function scrollToBottom() {
         const chatContainer = document.getElementById("chatContainer");
         chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function updateActiveUsersList(activeUsers) {
+        console.log('Updating active users list:', activeUsers);
+        const usersListContainer = document.getElementById('activeUsersList');
+        usersListContainer.innerHTML = '';
+        
+        if (activeUsers && activeUsers.length > 0) {
+            activeUsers.forEach(user => {
+                const userItem = document.createElement('span');
+                userItem.className = 'user-item';
+                userItem.textContent = user;
+                usersListContainer.appendChild(userItem);
+            });
+        } else {
+            // Show "No users online" if the list is empty
+            const noUsersItem = document.createElement('span');
+            noUsersItem.className = 'user-item';
+            noUsersItem.textContent = 'No users online';
+            noUsersItem.style.opacity = '0.7';
+            usersListContainer.appendChild(noUsersItem);
+        }
     }
 
     // Make connection to server.
@@ -92,17 +122,20 @@
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === 'user_joined' || data.type === 'user_left') {
+            console.log(data);
             // Handle user join/leave events
             document.getElementById('userCount').textContent = data.user_count;
             
-            // Add system message
-            var messageDiv = document.querySelector('.message');
-            messageDiv.innerHTML += '<div class="system-message"><p style="color: #666; font-style: italic;">' + data.message + '</p></div>';
+            // Update active users list
+            if (data.active_users) {
+                updateActiveUsersList(data.active_users);
+            }
+    
             scrollToBottom();
         } else if (data.message) {
             // Handle chat messages
             const messageData = data.message;
-            console.log(messageData);
+            // console.log(messageData);
             
             const sender = messageData['sender'];
             const message = messageData['message'];
@@ -165,9 +198,7 @@
     .parent {
         height: 100vh;
         display: flex;
-        justify-content: center;
-        /* background-image: url("/static/img/bck.jpg");  */
-       
+        justify-content: center;       
         background-position: center; 
         background-repeat: no-repeat; 
         background-size: cover; 
@@ -176,17 +207,14 @@
     }
 
     .child-1 {
-        /* height: 70vh; */
         width: 30%;
         margin: 10px;
         border-radius: 10px;
-        
         background-color: white;
     }
 
     .chat-room {
         width: 100%;
-        /* max-height: ; */
         border-radius: 10px;
         display: flex;
         align-items: center;
@@ -196,7 +224,6 @@
     }
 
     .profile-pic {
-        /* height: 80px; */
         width: 15%;
         
         border-radius: 50px;
@@ -228,7 +255,6 @@
 
 
     .child-2 {
-        /* max-height: 100vh; */
         width: 50%;
         margin: 10px;
         border-radius: 10px;
@@ -240,11 +266,9 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        /* height: 60vh; */
     }
 
     .chat-body, .message {
-        /* max-height: 100vh; */
         width: 100%;
         background-color: #557A95;
         border-radius: 10px;
@@ -254,14 +278,13 @@
     }
 
     .message {
-        max-height: 400px;  /* Or whatever height value you see fit */
+        max-height: 400px; 
         overflow-y: auto;
     }
 
     .chat-body .message .receive, .send {
         background-color: #B1A296;
         max-width: 400px;
-       
         border-radius: 10px;
         padding: 10px;
         margin-bottom: 10px;
@@ -307,16 +330,37 @@
         color: #000;
     }
     @media only screen and (max-width: 600px) {
-    .child-2 {
-        width: 100%;
+        .child-2 {
+            width: 100%;
+        }
+        
+        .room-header {
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-info {
+            align-items: center;
+        }
+        
+        .active-users {
+            min-width: 200px;
+        }
     }
-}
 
     .room-header {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         padding: 10px;
+    }
+    
+    .user-info {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
     }
     
     .user-count {
@@ -325,6 +369,37 @@
         padding: 5px 10px;
         border-radius: 15px;
         font-size: 14px;
+    }
+    
+    .active-users {
+        background-color: #FBEEC1;
+        padding: 10px;
+        border-radius: 10px;
+        min-width: 150px;
+        border: 1px solid #659DBD;
+    }
+    
+    .active-users h4 {
+        margin: 0 0 8px 0;
+        color: #333;
+        font-size: 14px;
+        text-align: center;
+    }
+    
+    .users-list {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .user-item {
+        background-color: #659DBD;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        text-align: center;
+        display: inline-block;
     }
     
     .system-message {

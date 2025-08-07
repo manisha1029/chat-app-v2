@@ -11,7 +11,7 @@ def index(request):
         if Room.objects.filter(room_name=room).exists():
             return redirect('room', room_name=room, username=username)
         else:
-            # create new room if it doesn't exist
+          # create new room if it doesn't exist
             new_room = Room.objects.create(room_name=room)
             new_room.save()
             return redirect('room', room_name=room, username=username)
